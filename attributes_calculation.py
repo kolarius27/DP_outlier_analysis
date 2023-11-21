@@ -17,7 +17,7 @@ from shapely import Polygon, Point, LineString
 
 
 def main():
-    test_boulder = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_pdal_oknn2_noise_oknn_strip_normals_factors.las'
+    test_boulder = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_normal_0.45_50.las'
     pdal_boulder = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_opals_eigen.las'
     trajectory = r'E:/NATUR_CUNI/_DP/data/Trajectory/HEK_trajectory.csv'
 
@@ -40,7 +40,6 @@ def main():
     # pc_cov_features(boulder4, knn=25, optimized=False)
 
     calculate_factors(boulder4, trajectory)
-
 
 
 def calculate_factors(las_path, trj_path):
@@ -107,9 +106,9 @@ def pick_scanner_position(las, trj):
 
     # calculate scan_distance
     differences = np.column_stack([
-    merge_gdf['geometry_y'].geometry.x.values - merge_gdf['geometry_x'].geometry.x.values,
-    merge_gdf['geometry_y'].geometry.y.values - merge_gdf['geometry_x'].geometry.y.values,
-    merge_gdf['geometry_y'].geometry.z.values - merge_gdf['geometry_x'].geometry.z.values
+    merge_gdf['geometry_x'].geometry.x.values - merge_gdf['geometry_y'].geometry.x.values,
+    merge_gdf['geometry_x'].geometry.y.values - merge_gdf['geometry_y'].geometry.y.values,
+    merge_gdf['geometry_x'].geometry.z.values - merge_gdf['geometry_y'].geometry.z.values
     ])
 
     # Calculate the Euclidean distances using np.linalg.norm
@@ -138,10 +137,10 @@ def pc_angles(las, gdf_las):
     scan_angle, v2 = pc_h.compute_scan_angle_new(gdf_las['geometry_x'], gdf_las['geometry_y'], rot_angles)
 
     # calculate incidence angle 
-    incidence_angle = pc_h.compute_incidence_angle_new(normals, -v2)
+    incidence_angle = pc_h.compute_incidence_angle_new(-v2, normals)
 
     # calculate angle difference
-    angle_difference = scan_angle - incidence_angle
+    angle_difference = scan_angle + incidence_angle
 
     # save everything to gdf
     gdf_las['scan_angle'] = scan_angle
@@ -156,26 +155,28 @@ def pc_angles(las, gdf_las):
 
 def pc_azimuths(las, gdf_las):
     # calculate scan azimuth
-    scan_azimuth = pc_h.pc_scan_azimuth(gdf_las['geometry_y'], gdf_las['geometry_x'])
+    scan_azimuth = pc_h.pc_scan_azimuth(gdf_las['geometry_x'], gdf_las['geometry_y'])
 
     # calculate local azimuth
     local_azimuth = pc_h.pc_local_azimuth(gdf_las['NormalY'], gdf_las['NormalX'])
 
     # calculate azimuth difference
-    azimuth_difference = abs((scan_azimuth+local_azimuth) % 360. - 180.)
+    azimuth_difference = abs((scan_azimuth-local_azimuth) % 360. - 180.)
+    azimuth_deviation = abs((scan_azimuth+local_azimuth) % 360. - 180.)
 
     # save everything to gdf_las
     gdf_las['traj_azimuth'] = gdf_las['Yaw[deg]'] 
     gdf_las['scan_azimuth'] = scan_azimuth
     gdf_las['local_azimuth'] = local_azimuth
     gdf_las['azimuth_difference'] = azimuth_difference
+    gdf_las['azimuth_deviation'] = azimuth_deviation
 
     # add dimensions
     pc_h.add_dimension(las, 'traj_azimuth', 'f8', 'Azimuth of trajectory', gdf_las['Yaw[deg]'])
     pc_h.add_dimension(las, 'scan_azimuth', 'f8', 'Azimuth between point/scanner', gdf_las['scan_azimuth'])
     pc_h.add_dimension(las, 'local_azimuth', 'f8', 'Local azimuth od surface', gdf_las['local_azimuth'])
     pc_h.add_dimension(las, 'azimuth_difference', 'f8', 'difference of azimuths', gdf_las['azimuth_difference'])
-
+    pc_h.add_dimension(las, 'azimuth_deviation', 'f8', 'deviation of azimuths', gdf_las['azimuth_deviation'])
 '''
 functions to calculate attributes (eigenentropy...)
 '''

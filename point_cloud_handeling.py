@@ -118,11 +118,14 @@ def main():
     # gps_time(boulder3)
     # pc_strip_split(lower_rongue_las)
 
-    local_azimuth = np.arctan2(1., 0.)/m.pi*180
-    deltaX = np.array(0 - 1)
-    deltaY = np.array(0 - 0)
-    scan_azimuth = np.arctan2(deltaX, deltaY)/m.pi*180
-    print(abs((45+180) % 360. - 180.))
+    destination = Point(0.,0.)
+    origin = Point(1.,1.)
+    scan_azimuth = pc_scan_azimuth(destination, origin)
+    scan_anglecompute_scan_angle_new
+    print(scan_azimuth)
+
+
+
 
 
 def add_gaussian_noise(las_path, amount=0.1, noise_mean=0, noise_std=0.1):
@@ -635,23 +638,6 @@ def pc_angles_azimuths(las, gdf):
     add_dimension(las, 'azimuth_difference', 'difference of azimuths', gdf['azimuth_difference'])
 
 
-def pc_local_azimuth(normalY, normalX):
-    degrees = np.arctan2(normalX, normalY)/m.pi*180
-    # degrees[degrees<0] += 360
-    return degrees
-
-
-def pc_scan_azimuth(destination, origin):
-    
-    deltaX = np.array(destination.x - origin.x)
-    deltaY = np.array(destination.y - origin.y)
-    degrees = np.arctan2(deltaX, deltaY)/m.pi*180
-    # degrees[degrees<0] += 360.
-
-
-    return degrees
-
-
 def pick_scanner_position(las, trajectory_path):
     df_trj = pd.read_csv(trajectory_path)
     gdf_trj = gpd.GeoDataFrame(df_trj, geometry=gpd.points_from_xy(df_trj['Easting[m]'], df_trj['Northing[m]'], df_trj['Height[m]']))
@@ -972,6 +958,21 @@ def pc_angles_new(gdf, las):
 
     add_dimension(las, 'incidence_angle', 'Incidence angle of given point', incidence_angle)
     add_dimension(las, 'angle_difference', 'Diff of scan and incidence angle', angle_difference)
+
+
+def pc_local_azimuth(normalY, normalX):
+    degrees = np.arctan2(normalX, normalY)/m.pi*180
+    # degrees[degrees<0] += 360
+    return degrees
+
+
+def pc_scan_azimuth(destination, origin):
+    
+    deltaX = np.array(destination.x - origin.x)
+    deltaY = np.array(destination.y - origin.y)
+    degrees = np.arctan2(deltaX, deltaY)/m.pi*180
+    # degrees[degrees<0] += 360.
+    return degrees
 
 
 def compute_incidence_angle(v1, v2):

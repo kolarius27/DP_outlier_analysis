@@ -59,19 +59,20 @@ def main():
     # sor_train(boulder4, min_k=2, max_k=25, step_k=4, step_nsigma=0.5)
     # sor_per_strip_train(boulder4)
     # msor_train(boulder4_synthetic_gr, step=1, max_k=50)
-    osor_train(boulder4_synthetic_oKNN)
+    # osor_train(boulder4_synthetic_oKNN)
     # ror_train(boulder4_synthetic_gr)
     # recor_train(boulder4_synthetic_gr)
     # mrecor_train(boulder4_synthetic_gr, max_k=50, step=1)
     # orecor_train(boulder4_synthetic_oKNN)
     # mrecsor_train(boulder4_synthetic_gr, min_knn=5, max_knn=50, step=1, max_nsigma=3.0)
     # mrecsor_detection(boulder4)
+    # sor_train(boulder4_synthetic_gr, min_k=2, max_k=55, min_nsigma=0.5, max_nsigma=5.0, step_nsigma=0.5)
     # rsor_train(boulder4_synthetic_gr, min_k=2, max_k=55, min_nsigma=0.5, max_nsigma=5.0)
 
     # sor_train(boulder2_synthetic_gr, min_k=2, max_k=25, step_k=4, step_nsigma=0.5)
     # msor_train(boulder2_synthetic_gr, step=1, max_k=50)
-    osor_train(boulder2_synthetic_oKNN2)
-    # mrecor_train(boulder2_synthetic_gr, max_k=50, step=1)
+    # osor_train(boulder2_synthetic_oKNN2)
+    mrecor_train(boulder4_synthetic_gr, max_k=50, step=1)
     # orecor_train(boulder2_synthetic_oKNN)
     # optimal_knn2(boulder4_synthetic_gr, min_k=4, max_k=50)
     # optimal_knn2(boulder2_synthetic_gr2, min_k=4, max_k=50)
@@ -362,6 +363,10 @@ def sor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=3.0, step
     cont_table_outlier_percentage = cont_table_f1.copy()
     cont_table_jaccard = cont_table_f1.copy()
 
+    x = 'nsigma'
+    y = 'knn'
+    cont_df = pd.DataFrame(columns=['nsigma', 'knn', 'metric', 'values'])
+
     for i, knn in enumerate(knn_range):
         print(knn)
         knn_distances = np.mean(distances[:,:knn], axis=1)
@@ -387,12 +392,21 @@ def sor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=3.0, step
             cont_table_outlier_percentage[i,j] = outlier_percentage
             cont_table_jaccard[i,j] = jaccard
 
-    
-    create_table(cont_table_f1, 'SOR - Dice', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
-    create_table(cont_table_jaccard, 'SOR - Jaccard similarity', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
-    create_table(cont_table_recall, 'SOR - recall', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
-    create_table(cont_table_precision, 'SOR - precision', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
-    create_table(cont_table_outlier_percentage, 'SOR - outlier percentage', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+            cont_df.loc[len(cont_df)] = {x: nsigma, y: knn, 'metric': 'dice', 'values': f1}
+            # cont_df.loc[len(cont_df)] = {'x': nsigma, 'y': knn, 'metric': 'jaccard', 'values': jaccard}
+            cont_df.loc[len(cont_df)] = {x: nsigma, y: knn, 'metric': 'precision', 'values': prec}
+            cont_df.loc[len(cont_df)] = {x: nsigma, y: knn, 'metric': 'recall', 'values': rec}
+            cont_df.loc[len(cont_df)] = {x: nsigma, y: knn, 'metric': 'outlier percentage', 'values': outlier_percentage}
+
+    # print(cont_df)
+
+
+    # create_table(cont_table_f1, 'SOR - Dice', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+    # create_table(cont_table_jaccard, 'SOR - Jaccard similarity', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+    # create_table(cont_table_recall, 'SOR - recall', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+    # create_table(cont_table_precision, 'SOR - precision', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+    # create_table(cont_table_outlier_percentage, 'SOR - outlier percentage', np.round(nsigma_range, decimals=1), knn_range.astype(int), 'nsigma', 'knn')
+    create_tables(cont_df, x, y, 'SOR')
     end = time.time()
     runtime = end-start
     print('============ TOTAL RUNTIME: {} s ============'.format(runtime))
@@ -645,12 +659,12 @@ def rsor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=3.0):
 
         abs_diff = np.abs(knn_distances - median_distance)
         mad = np.median(abs_diff)
-        nmad_distance = 1.4826 * mad
+        # nmad_distance = 1.4826 * mad
 
         for j, nsigma in enumerate(nsigma_range):
             y_pred = np.zeros(len(y_true), np.int8)
 
-            max_distance = median_distance + nsigma * nmad_distance
+            max_distance = median_distance + nsigma * mad
 
             y_pred[knn_distances >= max_distance] = 1
 
@@ -676,8 +690,6 @@ def rsor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=3.0):
     runtime = end-start
 
     print('============ TOTAL RUNTIME: {} s ============'.format(runtime))
-
-
 
 def ror_train(las_path, r_min=0.04, r_max=0.15, k_min=1, k_max=15):
     start = time.time()
@@ -1170,6 +1182,21 @@ def create_table(cont_table, title, x_ticks, y_ticks, x_label, y_label):
 
     plt.title(title,fontsize=16)
     plt.show()
+
+def create_tables(cont_df, x_label, y_label, title):
+    g = sns.FacetGrid(cont_df, col='metric', height=6)
+    g.map_dataframe(draw_heatmap, x_label, y_label, 'values', annot=True, fmt='.2f', cmap="YlGnBu")
+    # g.set_ylabel=y_label
+    # for ax in g.axes[0]:
+    #     ax.set_xlabel=x_label
+    g.fig.subplots_adjust(top=0.9)
+    g.fig.suptitle(title, fontsize=20, fontweight=800)
+
+
+def draw_heatmap(*args, **kwargs):
+    data = kwargs.pop('data')
+    d = data.pivot(index=args[1], columns=args[0], values=args[2])
+    sns.heatmap(d, **kwargs)
 
 def create_lineplot(df, title, x_label):
     df.set_index(x_label)
