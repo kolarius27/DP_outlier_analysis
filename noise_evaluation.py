@@ -10,7 +10,7 @@ import math as m
 from statistics import mode
 from astropy.stats import circstats
 from pycircstat2 import Circular, load_data, descriptive
-from pycircular.stats import periodic_mean_std, periodic
+from pycircular.stats import periodic_mean_std
 import pycircular
 
 
@@ -20,19 +20,19 @@ def main():
     #boulder_cov_optim = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_opals_eigen_covf_optim.las'
     # boulder_cov = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_new_normal45_factors.las'
     boulder_mrecor_factors = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_mrecsor_0.3_0.7_normal_0.45_50_factors.las'
-
+    boulder4_norm_fix = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_normfix_0.08_0.4_100_factors_mrecsor_0.3_0.7.las'
 
     columns_cov = ['Density', 'DemantkeVerticality', 'SurfaceVariation', 'EigenvalueSum', 'Eigenentropy', 'Anisotropy', 'Omnivariance', 'Verticality', 'Scattering', 'Planarity', 'Linearity', 'Reciprocity', 'LocalOutlierFactor', 'LocalReachabilityDistance', 'NNDistance', 'OptimalRadius', 'OptimalKNN', 'point_source_id']
     columns_fact = ['scan_distance', 'scan_angle', 'incidence_angle', 'angle_difference', 'traj_azimuth', 'scan_azimuth', 'local_azimuth', 'azimuth_difference', 'slope']
     
-    columns_fact_small = ['scan_distance', 'scan_angle', 'incidence_angle', 'slope']
+    columns_fact_small = ['scan_distance', 'scan_angle', 'incidence_angle', 'slope2']
     columns_fact_circular = ['traj_azimuth', 'scan_azimuth', 'local_azimuth']
-    columns_fact_fused = ['angle_difference', 'azimuth_difference', 'azimuth_deviation']
+    columns_fact_fused = ['angle_sum', 'azimuth_deviation']
     # stats_visualization(test_boulder, columns_fact, 25)
     # stats_visualization_new(boulder_mrecor_factors, columns_fact_small)
-    stats_visualization_circular(boulder_mrecor_factors, columns_fact_circular)
+    # stats_visualization_circular(boulder_mrecor_factors, columns_fact_circular)
     # stats_visualization_new(boulder_mrecor_factors, columns_fact_small)
-    # stats_visualization_new(boulder_mrecor_factors, columns_fact_fused)
+    stats_visualization_new(boulder4_norm_fix, columns_fact_small)
     # boxplot_test()
     # print(m.sin(m.pi/2))
     # pycircular_test()

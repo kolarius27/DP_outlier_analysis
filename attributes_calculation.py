@@ -21,7 +21,8 @@ def main():
     pdal_boulder = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_opals_eigen.las'
     trajectory = r'E:/NATUR_CUNI/_DP/data/Trajectory/HEK_trajectory.csv'
 
-    boulder4 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_mrecsor_0.3_0.7_normal_0.45_50.las'
+    # boulder4 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_mrecsor_0.3_0.7_normal_0.45_50.las'
+    boulder4 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_normfix_0.08_0.4_100.las'
     #calculate_factors(las_path=test_boulder, trj_path=trajectory)
     # calculate_features_knn(pdal_boulder, 25)
     # pc_eigen(pdal_boulder, 5)
@@ -98,11 +99,14 @@ def pick_scanner_position(las, trj):
     gdf_las = gpd.GeoDataFrame(dict_las, geometry=gpd.points_from_xy(las.x, las.y, las.z))
     gdf_trj = gpd.GeoDataFrame(trj, geometry=gpd.points_from_xy(trj['Easting[m]'], trj['Northing[m]'], trj['Height[m]']))
     
+    print(gdf_las)
     # add index 
     gdf_las['las_index'] = gdf_las.index
 
     # connect point and scanner position, create table
     merge_gdf = pd.merge_asof(gdf_las.sort_values('gps_time'), gdf_trj, left_on='gps_time', right_on='Time[s]', direction='backward')
+    # print(merge_gdf)
+
 
     # calculate scan_distance
     differences = np.column_stack([
@@ -139,18 +143,23 @@ def pc_angles(las, gdf_las):
     # calculate incidence angle 
     incidence_angle = pc_h.compute_incidence_angle_new(-v2, normals)
 
+    # calculate slope
+    slope = np.rad2deg(np.arccos(gdf_las['NormalZ']))
+
     # calculate angle difference
-    angle_difference = scan_angle + incidence_angle
+    angle_sum = scan_angle + incidence_angle
 
     # save everything to gdf
     gdf_las['scan_angle'] = scan_angle
     gdf_las['incidence_angle'] = incidence_angle
-    gdf_las['angle_difference'] = angle_difference
+    gdf_las['slope2'] = slope
+    gdf_las['angle_sum'] = angle_sum
 
     # add dimensions
     pc_h.add_dimension(las, 'scan_angle', 'f8', 'Scanning angle', scan_angle)
     pc_h.add_dimension(las, 'incidence_angle', 'f8', 'Incidence angle of given point', incidence_angle)
-    pc_h.add_dimension(las, 'angle_difference', 'f8', 'Diff of scan and incidence angle', angle_difference)
+    pc_h.add_dimension(las, 'slope2', 'f8', 'Max dip', slope)
+    pc_h.add_dimension(las, 'angle_sum', 'f8', 'Diff of scan and incidence angle', angle_sum)
 
 
 def pc_azimuths(las, gdf_las):
@@ -161,21 +170,18 @@ def pc_azimuths(las, gdf_las):
     local_azimuth = pc_h.pc_local_azimuth(gdf_las['NormalY'], gdf_las['NormalX'])
 
     # calculate azimuth difference
-    azimuth_difference = abs((scan_azimuth-local_azimuth) % 360. - 180.)
-    azimuth_deviation = abs((scan_azimuth+local_azimuth) % 360. - 180.)
+    azimuth_deviation = abs((scan_azimuth-local_azimuth) % 360. - 180.)
 
     # save everything to gdf_las
     gdf_las['traj_azimuth'] = gdf_las['Yaw[deg]'] 
     gdf_las['scan_azimuth'] = scan_azimuth
     gdf_las['local_azimuth'] = local_azimuth
-    gdf_las['azimuth_difference'] = azimuth_difference
     gdf_las['azimuth_deviation'] = azimuth_deviation
 
     # add dimensions
     pc_h.add_dimension(las, 'traj_azimuth', 'f8', 'Azimuth of trajectory', gdf_las['Yaw[deg]'])
     pc_h.add_dimension(las, 'scan_azimuth', 'f8', 'Azimuth between point/scanner', gdf_las['scan_azimuth'])
     pc_h.add_dimension(las, 'local_azimuth', 'f8', 'Local azimuth od surface', gdf_las['local_azimuth'])
-    pc_h.add_dimension(las, 'azimuth_difference', 'f8', 'difference of azimuths', gdf_las['azimuth_difference'])
     pc_h.add_dimension(las, 'azimuth_deviation', 'f8', 'deviation of azimuths', gdf_las['azimuth_deviation'])
 '''
 functions to calculate attributes (eigenentropy...)

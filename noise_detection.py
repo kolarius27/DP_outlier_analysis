@@ -40,9 +40,25 @@ def main():
     boulder2_synthetic_oKNN = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder2_smoothed_gauss_0.05_0.0_0.1-random_0.05_0.2_oknn2.las'
     boulder2_synthetic_oKNN2 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder2_smoothed_gauss_0.08_0.0_0.08-random_0.05_0.15_oknn2.las'
 
+    boulder4_fixed_normals = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N.las'
+    boulder4_fixed_normals_noise = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.05-random_0.05_0.2.las'
+    boulder4_fixed_normals_noise2 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.1_0.0_0.05-random_0.1_0.2.las'
+    boulder4_fixed_normals_noise3 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.1-random_0.05_0.3.las'
+    boulder4_fixed_normals_noise4 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.03-random_0.05_0.08.las'
+
+
+    boulder4_f_normals = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N.las'
+
     # add_gaussian_noise(boulder4_smoothed, amount=0.1, noise_std=0.05)
     # add_random_noise(boulder4_smoothed, amount=0.1, scale=0.2)
-    #add_noise(boulder2_smoothed, amount_g=0.08, amount_r=0.05, g_std=0.08, r_scale=0.15)
+    # add_noise(boulder2_smoothed, amount_g=0.08, amount_r=0.05, g_std=0.08, r_scale=0.15)
+
+    # add_noise_normal(boulder4_fixed_normals, amount_g = 0.05, amount_r=0.05, g_std=0.1, r_scale=0.2)
+    add_noise_normal(boulder2_smoothed, amount_g = 0.05, amount_r=0.05, g_std=0.1, r_scale=0.2)
+    # mrecor_train(boulder4_fixed_normals_noise4, max_k=50, step=1)
+    # mrecsor_train(boulder4_fixed_normals_noise2, min_knn=5, max_knn=50, step=1, max_nsigma=3.0)
+    # sor_train(boulder4_fixed_normals_noise4, min_k=2, max_k=25, step_k=4, step_nsigma=0.5)
+
 
     # sor_train(boulder4, min_k=2, max_k=25, step_k=4, step_nsigma=0.5)
     # sor_per_strip_train(boulder4)
@@ -72,14 +88,14 @@ def main():
     # sor_train(boulder2_synthetic_gr, min_k=2, max_k=25, step_k=4, step_nsigma=0.5)
     # msor_train(boulder2_synthetic_gr, step=1, max_k=50)
     # osor_train(boulder2_synthetic_oKNN2)
-    mrecor_train(boulder4_synthetic_gr, max_k=50, step=1)
+    # mrecor_train(boulder4_synthetic_gr, max_k=50, step=1)
     # orecor_train(boulder2_synthetic_oKNN)
     # optimal_knn2(boulder4_synthetic_gr, min_k=4, max_k=50)
     # optimal_knn2(boulder2_synthetic_gr2, min_k=4, max_k=50)
 
     # mrecsor_train(boulder2_synthetic_gr, min_knn=5, max_knn=50, step=1, max_nsigma=3.0)
     # mrecsor_precise_train(boulder2_synthetic_gr)
-    # mrecsor_detection(boulder2)
+    # mrecsor_detection(boulder4_fixed_normals)
 
 def add_random_noise(las_path, amount=0.1, scale=0.1):
     las = pylas.read(las_path)
@@ -140,7 +156,7 @@ def add_gaussian_noise(las_path, amount=0.1, noise_mean=0, noise_std=0.1):
     output_file = las_path.replace('.las', '_noise_{}_{}_{}.las'.format(amount,noise_mean,noise_std))
     las_new.write(output_file)
 
-def add_noise(las_path, amount_g=0.05, amount_r=0.05, g_mean=0., g_std=0.1, r_scale=0.2):
+def add_noise(las_path, amount_g=0.05, amount_r=0.05, g_mean=0., g_std=0.05, r_scale=0.2):
     las = pylas.read(las_path)
 
     total_points = len(las.points)
@@ -172,6 +188,91 @@ def add_noise(las_path, amount_g=0.05, amount_r=0.05, g_mean=0., g_std=0.1, r_sc
     print(las_new.classification[idx])
 
     output_file = las_path.replace('.las', '_gauss_{}_{}_{}-random_{}_{}.las'.format(amount_g, g_mean, g_std, amount_r, r_scale))
+    las_new.write(output_file)
+
+
+def add_noise_normal(las_path, amount_g=0.05, amount_r=0.05, g_mean=0., g_std=0.05, r_scale=0.2):
+    las = pylas.read(las_path)
+
+    total_points = len(las.points)
+    num_points_to_move = int((amount_g+amount_r)*total_points)
+    print(num_points_to_move)
+    idx = np.random.choice(total_points, num_points_to_move, replace=False)
+    split_id = int(total_points*((amount_g+amount_r)*amount_g))
+    g_idx = idx[:split_id]
+    r_idx = idx[split_id:]
+
+    las_new = las
+
+    new_x = las.x
+    new_y = las.y
+    new_z = las.z
+    Nx = las.Nx
+    Ny = las.Ny
+    Nz = las.Nz
+
+    gaus_dev = np.random.normal(g_mean, g_std, len(g_idx))
+    print(max(gaus_dev))
+    # uni_dev = np.random.uniform(-1., 1., len(r_idx))*r_scale
+
+    new_x[g_idx] += Nx[g_idx]*gaus_dev
+    new_y[g_idx] += Ny[g_idx]*gaus_dev
+    new_z[g_idx] += Nz[g_idx]*gaus_dev
+
+    new_x[r_idx] += np.random.uniform(-1., 1., len(r_idx))*r_scale
+    new_y[r_idx] += np.random.uniform(-1., 1., len(r_idx))*r_scale
+    new_z[r_idx] += np.random.uniform(-1., 1., len(r_idx))*r_scale
+
+    las_new.x = new_x
+    las_new.y = new_y
+    las_new.z = new_z
+    # las_new.clasification = np.zeros(len(las_new.x), np.int8)
+    las_new.classification[idx] = 7
+    print(las_new.classification)
+
+    output_file = las_path.replace('.las', '_gauss_{}_{}_{}-random_{}_{}.las'.format(amount_g, g_mean, g_std, amount_r, r_scale))
+    las_new.write(output_file)
+
+def add_noise_normal2(las_path, amount_g=0.05, amount_r=0.05, g_mean=0., g_std=0.05, r_scale=0.2):
+    las = pylas.read(las_path)
+
+    total_points = len(las.points)
+    num_points_to_move = int((amount_g+amount_r)*total_points)
+    print(num_points_to_move)
+    idx = np.random.choice(total_points, num_points_to_move, replace=False)
+    split_id = int(total_points*((amount_g+amount_r)*amount_g))
+    g_idx = idx[:split_id]
+    r_idx = idx[split_id:]
+
+    las_new = las
+
+    new_x = las.x
+    new_y = las.y
+    new_z = las.z
+    Nx = las.Nx
+    Ny = las.Ny
+    Nz = las.Nz
+
+    gaus_dev = np.random.normal(g_mean, g_std, len(g_idx))
+    print(max(gaus_dev))
+    uni_dev = np.random.uniform(-1., 1., len(r_idx))*r_scale
+
+    new_x[g_idx] += Nx[g_idx]*gaus_dev
+    new_y[g_idx] += Ny[g_idx]*gaus_dev
+    new_z[g_idx] += Nz[g_idx]*gaus_dev
+
+    new_x[r_idx] += Nx[r_idx]*uni_dev
+    new_y[r_idx] += Ny[r_idx]*uni_dev
+    new_z[r_idx] += Nz[r_idx]*uni_dev
+
+    las_new.x = new_x
+    las_new.y = new_y
+    las_new.z = new_z
+    # las_new.clasification = np.zeros(len(las_new.x), np.int8)
+    las_new.classification[idx] = 7
+    print(las_new.classification)
+
+    output_file = las_path.replace('.las', '_gauss_{}_{}_{}-random_{}_{}_.las'.format(amount_g, g_mean, g_std, amount_r, r_scale))
     las_new.write(output_file)
 
 """
@@ -508,7 +609,7 @@ def sor_per_strip_train(las_path, noise_dec=False, min_k=5, max_k=105, min_nsigm
     print('============ TOTAL RUNTIME: {} s ============'.format(runtime))
 
 
-def msor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=2.5, step=5):
+def msor_train(las_path, min_k=5, max_k=50, min_nsigma=0.1, max_nsigma=2.5, step=1):
     start = time.time()
 
     las = pylas.read(las_path)  # Read LAS file using pylas
@@ -535,7 +636,7 @@ def msor_train(las_path, min_k=5, max_k=105, min_nsigma=0.1, max_nsigma=2.5, ste
     for sd in nsigma_range:
         y_pred = np.zeros(len(y_true), np.int8)
         for knn in knn_range:
-            knn_distances = np.min(distances[:,:knn], axis=1)
+            knn_distances = np.mean(distances[:,:knn], axis=1)
             avg_distance = np.mean(knn_distances)
             std_distance = np.std(knn_distances)
         

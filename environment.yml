@@ -1,4 +1,4 @@
-name: master_thesis
+name: MichalK
 channels:
   - conda-forge
   - defaults

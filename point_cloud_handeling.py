@@ -220,6 +220,11 @@ def circular_hist(ax, x, bins=16, density=True, offset=np.pi/2, gaps=True):
 def get_xyz(las):
     return np.vstack((las.x, las.y, las.z)).T
 
+
+def get_normals(las):
+    return np.vstack((las.Nx, las.Ny, las.Nz)).T
+
+
 def classify_7(las_path):
     las = pylas.read(las_path)
     las.classification[:] = 7
