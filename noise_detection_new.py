@@ -20,17 +20,22 @@ from PyNomaly import loop
 
 
 def main():
-    boulder1 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.1-random_0.05_0.2.las'
-    # boulder1 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.05-random_0.05_0.2.las'
+    boulder1_synthetic = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N_gauss_0.05_0.0_0.1-random_0.05_0.2.las'
+    boulder1 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_normfix_0.08_0.4_100_factors.las'
     boulder1_smooth = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder4_smoothed_N.las'
 
-    # boulder2 = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder2_smoothed_gauss_0.07_0.0_0.08-random_0.07_0.15.las'
+
+    boulder2_synthetic = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder2_smoothed_gauss_0.05_0.0_0.1-random_0.05_0.2.las'
     boulder2_smooth = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/synthetic/data/boulder2_smoothed.las'
 
     
-    # train_outlier_detection(boulder1, max_k=50)
-    # train_outlier_detection(boulder2, max_k=50)
+    # train_outlier_detection(boulder1_synthetic, max_k=50)
+    # train_outlier_detection(boulder2_synthetic, max_k=50)
     test_robustness(boulder1_smooth)
+
+    # mrecor_time_test(boulder1)
+
+    # detect_outliers(boulder1, minrec=0.75)
 
 
 
@@ -47,11 +52,11 @@ def train_outlier_detection(las_path, max_k):
     indices = tree_query[1][:,1:]
     idx = indices[indices]
 
-    sor(y_true, distances, 'normal')
-    sor(y_true, distances, 'robust', min_nsigma = 1.5, max_nsigma = 5.5, step_nsigma=1.0)
-    ror(y_true, distances)
-    recor(y_true, idx)
-    #mrecor2(y_true, idx, step_k=5, max_k=20)
+    # sor(y_true, distances, 'normal')
+    # sor(y_true, distances, 'robust', min_nsigma = 1.5, max_nsigma = 5.5, step_nsigma=1.0)
+    # ror(y_true, distances)
+    # recor(y_true, idx)
+    mrecor(y_true, idx, step_k=1, max_k=max_k)
 
 
 
@@ -70,7 +75,7 @@ def test_robustness(las_path):
 
     std_range = np.arange(0.05, 0.201, 0.01)
     scale_range = np.arange(0.05, 0.4, 0.025)
-    amount_range = np.arange(0.01, 0.201, 0.01)
+    amount_range = np.arange(0.03, 0.181, 0.01)
 
 
     for amount in amount_range:
@@ -110,6 +115,43 @@ def test_robustness(las_path):
     create_robustness_plots(cont_df, _)
     print(cont_df)
 
+def detect_outliers(las_path, max_k=50, step_k=1, minrec=0.8):
+    start_total = time.time()
+    
+    las, xyz_points, _, _  = prepare_las(las_path)
+
+    threads = cpu_count()-1
+    tree = cKDTree(xyz_points)
+    tree_query = tree.query(xyz_points, k = max_k+1, workers = threads)
+    indices = tree_query[1][:,1:]
+    idx = indices[indices]
+
+    y_pred, reciprocity = mrecor_detect(idx, max_k, step_k, minrec)
+
+        
+    pc_h.add_dimension(las=las, dim_name='outliers', dim_type='int8', dim_description='outliers classified by mrecor', dim_values=y_pred)
+    pc_h.add_dimension(las=las, dim_name='max_reciprocity', dim_type='f8', dim_description='maximal reciprocity', dim_values=reciprocity)
+
+    output_file = las_path.replace('.las', '_mrecor_{}_{}.las'.format(max_k, minrec))
+    las.write(output_file)
+
+"""
+ALGORITHMS to detect outliers
+"""
+def mrecor_detect(idx, max_k, step_k, minrec):
+    knn_range = np.arange(5, max_k+1, step_k)
+    
+    final_reciprocity = np.zeros(len(idx), np.float64)
+    for knn in knn_range:
+        idx_knn = idx[:, :int(knn), :int(knn)]
+        reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
+        reciprocity = 1-(reciprocal_counts / knn)
+        final_reciprocity = np.max(np.vstack([reciprocity, final_reciprocity]), axis=0)
+    
+    y_pred = np.zeros(len(idx), np.int8)
+    y_pred[final_reciprocity > minrec] = 1
+
+    return y_pred, final_reciprocity
 
 """
 ALGORITHMS to test robustness
@@ -176,6 +218,55 @@ def mrecor_test(cont_df, ntype, y_true, idx, std, amount, minrec):
     add_to_df3(y_true, y_pred, cont_df, ntype, 'mRecOR', std, amount)
 
     
+def mrecor_time_test(las_path):
+    _, xyz_points, _, y_true  = prepare_las(las_path)
+    max_k_range = np.arange(5,70+1,1)
+    step_range = [1, 2, 5, 10]
+    rec_range = np.arange(0.3, 0.9, 0.01)
+    threads = cpu_count()-1
+
+    cont_df = pd.DataFrame(columns=['knn', 'step', 'metric', 'values'])
+
+    for max_k in max_k_range:
+        for step in step_range:
+            start1 = time.time()
+
+            knn_range = np.arange(5, max_k+1, step)
+            tree = cKDTree(xyz_points)
+            tree_query = tree.query(xyz_points, k = max_k+1, workers = threads)
+            indices = tree_query[1][:,1:]
+            idx = indices[indices]
+
+            final_reciprocity = np.zeros(len(y_true), np.float64)
+            for knn in knn_range:
+                
+                idx_knn = idx[:, :int(knn), :int(knn)]
+                reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
+                reciprocity = 1-(reciprocal_counts / knn)
+                final_reciprocity = np.max(np.vstack([reciprocity, final_reciprocity]), axis=0)
+
+            end1 = time.time()
+            f1_list = []
+            for minrec in rec_range:
+                y_pred = np.zeros(len(y_true), np.int8)
+                y_pred[final_reciprocity > minrec] = 1
+                f1_list.append(f1_score(y_true, y_pred, average='binary'))
+            best_minrec_index =f1_list.index(max(f1_list))
+            best_minrec = list(rec_range)[best_minrec_index]
+            start2 = time.time()
+            y_pred = np.zeros(len(y_true), np.int8)
+            y_pred[final_reciprocity > best_minrec] = 1
+            end2 = time.time()
+            runtime = (end1-start1) + (end2-start2)
+            print(max_k, step, runtime)
+            del tree, tree_query, indices, idx
+
+            add_to_df4(y_true, y_pred, cont_df, max_k, step, best_minrec, runtime)
+
+    create_mrecor_plot(cont_df)
+
+
+            
     
 
 """
@@ -272,63 +363,17 @@ def mrecor(y_true, idx, min_rec = 0.0, max_rec = 1.0, min_k = 5, max_k = 50, ste
     knn_range = np.arange(min_k, max_k+1, step_k)
     rec_range = np.arange(min_rec, max_rec+0.01, step_rec)
 
-    reciprocity_list = []
-    f1_list = []
-    rec_list = []
-    prec_list = []
-    outp_list = []
-
-    for knn in knn_range:
-        idx_knn = idx[:, :int(knn), :int(knn)]
-        reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
-        reciprocity = 1-(reciprocal_counts / knn)
-
-        reciprocity_list.append(reciprocity)
-
-    print(reciprocity_list[0])
-    print(reciprocity_list[-1])
-    final_reciprocity = np.max(reciprocity_list, axis=0)
-    print(final_reciprocity)
-    
-    f1_list = []
-    for minrec in rec_range:
-        y_pred = np.zeros(len(y_true), np.int8)
-        
-        y_pred[final_reciprocity > minrec] = 1
-        f1_list.append(f1_score(y_true, y_pred, average='binary'))
-        prec_list.append(precision_score(y_true, y_pred))
-        rec_list.append(recall_score(y_true, y_pred))
-        outp_list.append(round(np.sum(y_pred)/len(y_pred),2))
-
-    df = pd.DataFrame(data={'reciprocity threshold': rec_range, 
-                            'F1': f1_list,
-                            'recall': rec_list,
-                            'precision': prec_list,
-                            'outlier_percentage': outp_list})
-    
-    create_lineplot(df, 'mRecOR', 'reciprocity threshold')
-
-def mrecor2(y_true, idx, min_rec = 0.0, max_rec = 1.0, min_k = 5, max_k = 50, step_rec = 0.01, step_k = 1):
-    knn_range = np.arange(min_k, max_k+1, step_k)
-    rec_range = np.arange(min_rec, max_rec+0.01, step_rec)
-
     x = 'minrec'
 
     cont_df = pd.DataFrame(columns=[x, 'metric', 'values'])
 
-    reciprocity_list = []
-   
+
+    final_reciprocity = np.zeros(len(y_true), np.float64)
     for knn in knn_range:
         idx_knn = idx[:, :int(knn), :int(knn)]
         reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
         reciprocity = 1-(reciprocal_counts / knn)
-
-        reciprocity_list.append(reciprocity)
-
-    print(reciprocity_list[0])
-    print(reciprocity_list[-1])
-    final_reciprocity = np.max(reciprocity_list, axis=0)
-    print(final_reciprocity)
+        final_reciprocity = np.max(np.vstack([reciprocity, final_reciprocity]), axis=0)
     
     for minrec in rec_range:
         y_pred = np.zeros(len(y_true), np.int8)
@@ -337,6 +382,8 @@ def mrecor2(y_true, idx, min_rec = 0.0, max_rec = 1.0, min_k = 5, max_k = 50, st
         add_to_df2(y_true, y_pred, cont_df, x, round(minrec,2))
     
     create_lineplot_new(cont_df, x, 'mRecOR')
+
+
 
 """
 UTILS
@@ -452,7 +499,7 @@ def add_to_df(y_true, y_pred, cont_df, x, y, x_val, y_val):
     cont_df.loc[len(cont_df)] = {x: x_val, y: y_val, 'metric': 'F1', 'values': f1}
     cont_df.loc[len(cont_df)] = {x: x_val, y: y_val, 'metric': 'precision', 'values': prec}
     cont_df.loc[len(cont_df)] = {x: x_val, y: y_val, 'metric': 'recall', 'values': rec}
-    cont_df.loc[len(cont_df)] = {x: x_val, y: y_val, 'metric': 'outlier percentage', 'values': outlier_percentage}
+    cont_df.loc[len(cont_df)] = {x: x_val, y: y_val, 'metric': 'outlier %', 'values': outlier_percentage}
 
 def add_to_df2(y_true, y_pred, cont_df, x,x_val):
     f1 = f1_score(y_true, y_pred, average='binary')
@@ -463,7 +510,7 @@ def add_to_df2(y_true, y_pred, cont_df, x,x_val):
     cont_df.loc[len(cont_df)] = {x: x_val, 'metric': 'F1', 'values': f1}
     cont_df.loc[len(cont_df)] = {x: x_val, 'metric': 'precision', 'values': prec}
     cont_df.loc[len(cont_df)] = {x: x_val, 'metric': 'recall', 'values': rec}
-    cont_df.loc[len(cont_df)] = {x: x_val, 'metric': 'outlier percentage', 'values': outlier_percentage}
+    cont_df.loc[len(cont_df)] = {x: x_val, 'metric': 'outlier %', 'values': outlier_percentage}
 
 def add_to_df3(y_true, y_pred, cont_df, ntype, algo, std, amount):
     f1 = f1_score(y_true, y_pred, average='binary')
@@ -475,6 +522,17 @@ def add_to_df3(y_true, y_pred, cont_df, ntype, algo, std, amount):
     cont_df.loc[len(cont_df)] = {'noise': ntype, 'algo': algo, 'std': std, 'amount': amount, 'metric': 'precision', 'values': prec}
     cont_df.loc[len(cont_df)] = {'noise': ntype, 'algo': algo, 'std': std, 'amount': amount, 'metric': 'recall', 'values': rec}
     cont_df.loc[len(cont_df)] = {'noise': ntype, 'algo': algo, 'std': std, 'amount': amount, 'metric': 'detection rate', 'values': detection_rate}
+
+
+def add_to_df4(y_true, y_pred, cont_df, knn, step, minrec, runtime):
+    f1 = f1_score(y_true, y_pred, average='binary')
+    detection_rate = ((np.sum(y_pred)/len(y_pred))/0.1)-1
+    
+    cont_df.loc[len(cont_df)] = {'knn': knn, 'step': step, 'metric': 'Runtime (s)', 'values': runtime}
+    cont_df.loc[len(cont_df)] = {'knn': knn, 'step': step, 'metric': 'F1', 'values': f1}
+    cont_df.loc[len(cont_df)] = {'knn': knn, 'step': step, 'metric': 'Best minrec', 'values': minrec}
+    cont_df.loc[len(cont_df)] = {'knn': knn, 'step': step, 'metric': 'Detection rate', 'values': detection_rate}
+
 
 def create_tables(cont_df, x_label, y_label, title):
     g = sns.FacetGrid(cont_df, col='metric', height=6)
@@ -509,6 +567,11 @@ def create_lineplot(df, title, x_label):
     plt.ylim(0)
     plt.show()
 
+def create_mrecor_plot(df):
+    sns.relplot(
+    data=df, x='knn', y='values', col='metric',
+    hue='step', kind="line", facet_kws=dict(sharey=False)
+    )
 
 
 def create_robustness_plots(df, title):
@@ -552,14 +615,16 @@ def create_lineplot_new(df, x, name):
 
     # Find all rows with the same 'minrec'
     rows = df[df[x] == max_minrec_value]
-    rows.iloc[0] = {'metric': x, 'values': max_minrec_value}   
-
+    rows.loc[-1] = {'metric': x, 'values': max_minrec_value}
+    rows.index = rows.index + 1  # shifting index
+    rows = rows.sort_index()
+       
+    rows['values'] = np.round(rows['values'],3)
     # g.text(1.05, 0.5, txt)
 
     plt.axvline(max_minrec_value, linestyle=':')
     g.text(max_minrec_value-0.02, -0.065, max_minrec_value, fontsize=10, fontweight=600)
-
-    table = plt.table(cellText = rows['values'], rowLabels=rows['metric'])
+    table = plt.table(cellText=rows[['metric', 'values']].values, bbox=(1.02, .1, 0.3, 0.4))
 
 """
 garbage
@@ -598,6 +663,45 @@ def mrecor_old(y_true, idx, min_rec = 0.25, max_rec = 0.85, min_k = 5, max_k = 5
 
     print(max(f1_list))
 
+def mrecor2(y_true, idx, min_rec = 0.0, max_rec = 1.0, min_k = 5, max_k = 50, step_rec = 0.01, step_k = 1):
+    knn_range = np.arange(min_k, max_k+1, step_k)
+    rec_range = np.arange(min_rec, max_rec+0.01, step_rec)
+
+    reciprocity_list = []
+    f1_list = []
+    rec_list = []
+    prec_list = []
+    outp_list = []
+
+    for knn in knn_range:
+        idx_knn = idx[:, :int(knn), :int(knn)]
+        reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
+        reciprocity = 1-(reciprocal_counts / knn)
+
+        reciprocity_list.append(reciprocity)
+
+    print(reciprocity_list[0])
+    print(reciprocity_list[-1])
+    final_reciprocity = np.max(reciprocity_list, axis=0)
+    print(final_reciprocity)
+    
+    f1_list = []
+    for minrec in rec_range:
+        y_pred = np.zeros(len(y_true), np.int8)
+        
+        y_pred[final_reciprocity > minrec] = 1
+        f1_list.append(f1_score(y_true, y_pred, average='binary'))
+        prec_list.append(precision_score(y_true, y_pred))
+        rec_list.append(recall_score(y_true, y_pred))
+        outp_list.append(round(np.sum(y_pred)/len(y_pred),2))
+
+    df = pd.DataFrame(data={'reciprocity threshold': rec_range, 
+                            'F1': f1_list,
+                            'recall': rec_list,
+                            'precision': prec_list,
+                            'outlier_percentage': outp_list})
+    
+    create_lineplot(df, 'mRecOR', 'reciprocity threshold')
 
 def mrecsor(y_true, distances, idx, min_k = 2, max_k = 55, min_nsigma = 0.1, max_nsigma = 5.0, min_rec = 0.1, max_rec = 0.9, step_k=1, step_nsigma=0.1, step_rec = 0.05):
     knn_range = np.arange(min_k, max_k+1, step_k)
@@ -759,7 +863,7 @@ def mrecsor3(y_true, distances, idx, min_k = 2, max_k = 55, min_nsigma = 0.1, ma
     print(np.max(result_df['values']))
 
 
-def mrecsor4(y_true, distances, idx, min_k = 5, max_k = 5, min_nsigma = 0.1, max_nsigma = 1.0, min_rec = 0.1, max_rec = 0.9, step_k=1, step_nsigma=0.2, step_rec = 0.2):
+def mrecsor4(y_true, distances, idx, min_k = 5, max_k = 50, min_nsigma = 0.1, max_nsigma = 1.0, min_rec = 0.1, max_rec = 0.9, step_k=1, step_nsigma=0.2, step_rec = 0.2):
     x = 'nsigma'
     y = 'minrec'
     
@@ -769,26 +873,27 @@ def mrecsor4(y_true, distances, idx, min_k = 5, max_k = 5, min_nsigma = 0.1, max
 
     cont_df = pd.DataFrame(columns=[x, y, 'metric', 'values'])
 
-    min_knn_distances = np.mean(distances[:,:2], axis=1)
-    mean_knn_distance = np.mean(min_knn_distances)
+    min_knn_distances = distances[:,:1].T[0]
+    mean_knn_distance = np.median(min_knn_distances)
     std_knn_distance = np.std(min_knn_distances)
-    #abs_diff = np.abs(min_knn_distances - mean_knn_distance)
-    # std_knn_distance = np.median(abs_diff)
+    print(min_knn_distances)
+    abs_diff = np.abs(min_knn_distances - mean_knn_distance)
+    std_knn_distance = np.median(abs_diff)
 
-    reciprocity_list = []
+    final_reciprocity = np.zeros(len(y_true), np.float64)
     for knn in knn_range:
         idx_knn = idx[:, :int(knn), :int(knn)]
         reciprocal_counts = np.count_nonzero(idx_knn == np.arange(idx_knn.shape[0])[:, None, None], axis=(1, 2)) 
         reciprocity = 1-(reciprocal_counts / knn)
-        reciprocity_list.append(reciprocity)
+        final_reciprocity = np.max(np.vstack([reciprocity, final_reciprocity]), axis=0)
 
-    max_reciprocity = np.max(reciprocity_list, axis=0)
+    print(final_reciprocity)
 
     for nsigma in nsigma_range:
         max_distance = mean_knn_distance + std_knn_distance * nsigma
         for minrec in rec_range:
             y_pred = np.zeros(len(y_true), np.int8)
-            y_pred[(max_reciprocity > minrec) & (min_knn_distances >= max_distance)] = 1
+            y_pred[(final_reciprocity > minrec) & (min_knn_distances >= max_distance)] = 1
             add_to_df(y_true, y_pred, cont_df, x, y, round(nsigma,2), round(minrec,2))
 
     create_tables(cont_df, x, y, 'mRecSOR')

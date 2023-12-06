@@ -147,7 +147,7 @@ def pc_angles(las, gdf_las):
     slope = np.rad2deg(np.arccos(gdf_las['NormalZ']))
 
     # calculate angle difference
-    angle_sum = scan_angle + incidence_angle
+    angle_sum = (scan_angle + incidence_angle)/2
 
     # save everything to gdf
     gdf_las['scan_angle'] = scan_angle
@@ -158,8 +158,8 @@ def pc_angles(las, gdf_las):
     # add dimensions
     pc_h.add_dimension(las, 'scan_angle', 'f8', 'Scanning angle', scan_angle)
     pc_h.add_dimension(las, 'incidence_angle', 'f8', 'Incidence angle of given point', incidence_angle)
-    pc_h.add_dimension(las, 'slope2', 'f8', 'Max dip', slope)
-    pc_h.add_dimension(las, 'angle_sum', 'f8', 'Diff of scan and incidence angle', angle_sum)
+    pc_h.add_dimension(las, 'slope', 'f8', 'Max dip', slope)
+    pc_h.add_dimension(las, 'angle_mean', 'f8', 'Mean of scan and incidence angle', angle_sum)
 
 
 def pc_azimuths(las, gdf_las):

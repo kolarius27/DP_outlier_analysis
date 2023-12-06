@@ -19,70 +19,27 @@ def main():
     #boulder_cov = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_opals_eigen_covf_100.las'
     #boulder_cov_optim = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_opals_eigen_covf_optim.las'
     # boulder_cov = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_new_normal45_factors.las'
-    boulder_mrecor_factors = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_mrecsor_0.3_0.7_normal_0.45_50_factors.las'
-    boulder4_norm_fix = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_normfix_0.08_0.4_100_factors_mrecsor_0.3_0.7.las'
+    # boulder_mrecor_factors = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_new_mrecsor_0.3_0.7_normal_0.45_50_factors.las'
+    boulder4_norm_fix = r'E:/NATUR_CUNI/_DP/data/LAZ/boulder/adjusted/boulder4_attributes/boulder4_normfix_0.08_0.4_100_factors_mrecor_50_0.75.las'
 
     columns_cov = ['Density', 'DemantkeVerticality', 'SurfaceVariation', 'EigenvalueSum', 'Eigenentropy', 'Anisotropy', 'Omnivariance', 'Verticality', 'Scattering', 'Planarity', 'Linearity', 'Reciprocity', 'LocalOutlierFactor', 'LocalReachabilityDistance', 'NNDistance', 'OptimalRadius', 'OptimalKNN', 'point_source_id']
-    columns_fact = ['scan_distance', 'scan_angle', 'incidence_angle', 'angle_difference', 'traj_azimuth', 'scan_azimuth', 'local_azimuth', 'azimuth_difference', 'slope']
+    columns_fact = ['scan_distance', 'scan_angle', 'incidence_angle', 'angle_mean', 'traj_azimuth', 'scan_azimuth', 'local_azimuth', 'azimuth_deviation', 'slope']
     
-    columns_fact_small = ['scan_distance', 'scan_angle', 'incidence_angle', 'slope2']
+    columns_fact_small = ['scan_distance', 'scan_angle', 'incidence_angle', 'slope']
     columns_fact_circular = ['traj_azimuth', 'scan_azimuth', 'local_azimuth']
-    columns_fact_fused = ['angle_sum', 'azimuth_deviation']
+    columns_fact_fused = ['angle_mean', 'azimuth_deviation']
     # stats_visualization(test_boulder, columns_fact, 25)
-    # stats_visualization_new(boulder_mrecor_factors, columns_fact_small)
-    # stats_visualization_circular(boulder_mrecor_factors, columns_fact_circular)
-    # stats_visualization_new(boulder_mrecor_factors, columns_fact_small)
+    #stats_visualization_new(boulder_mrecor_factors, columns_fact_small)
+    # stats_visualization_circular(boulder4_norm_fix, columns_fact_circular)
     stats_visualization_new(boulder4_norm_fix, columns_fact_small)
+    # stats_visualization_new(boulder4_norm_fix, columns_fact_fused)
     # boxplot_test()
     # print(m.sin(m.pi/2))
     # pycircular_test()
 
-
-
-def pycircular_test(las_df):
-    c21 = Circular(data=las_df, unit='degree')
-
-    fig, ax = plt.subplot_mosaic(mosaic="ab", figsize=(12, 6), per_subplot_kw={'b': {'projection': 'polar'}})
-
-    ax['a'].scatter(np.arange(len(las_df)), las_df, s=10, color='black')
-    ax['a'].set_xlabel('Observation number')
-    ax['a'].set_ylabel('Wind direction (in radians')
-
-    c21.plot(
-        ax=ax['b'],
-        plot_rose=False,
-        plot_density=False,
-        plot_mean=False,
-        plot_median=False,
-        r_max_scatter=1,
-        marker_color='black'
-    )
-
-    from matplotlib import ticker
-
-    position_major = np.arange(0, 2 * np.pi, 2 * np.pi / 4)
-    labels = ['N', 'E', 'S', 'W']
-    ax['b'].xaxis.set_major_locator(ticker.FixedLocator(position_major))
-    ax['b'].xaxis.set_major_formatter(ticker.FixedFormatter(labels))
-
-
-
-def stats_visualization(las_path, columns, knn):
-    las = pylas.read(las_path)
-    print(list(las.point_format.dimension_names))
-
-    las.classification = las.outliers
-
-    las_df = las2df(las, columns)
-
-
-    clean_df, noise_df = pc_splitbynoise2(las_df)
-
-
-    histogram_visu(clean_df, noise_df, columns, knn)
-
-    boxplot_visu(clean_df, noise_df, knn)
-
+"""
+Execution
+"""
 
 def stats_visualization_new(las_path, columns):
     las = pylas.read(las_path)
@@ -91,7 +48,13 @@ def stats_visualization_new(las_path, columns):
     las.classification = las.outliers
 
     las_df_ = las2df(las, columns)
+    #print(las_df_)
     las_df = pd.melt(las_df_, id_vars='classification', value_vars=columns)
+    #print(las_df)
+
+
+    df = df2op(las_df_, columns)
+    outlier_per_interval(df)
 
 
     # clean_df, noise_df = pc_splitbynoise2(las_df)
@@ -101,11 +64,20 @@ def stats_visualization_new(las_path, columns):
     # long_df = histogram_visu_new(las_df, columns)
     # df = pd.melt(las_df, id_vars='classification', value_vars=columns)
 
-    histogram_visu_new(las_df)
-    boxplot_visu_new(las_df)
+    #histogram_visu_new(las_df)
+    #boxplot_visu_new(las_df)
     # boxplot_visu(clean_df, noise_df, knn)
+    # summary_stats(las_df_, columns)
+    #las_df_['max_reciprocity'] = las.max_reciprocity
+    #las_df = pd.melt(las_df_, id_vars='max_reciprocity', value_vars=columns)
+    #print(las_df)
+    #attributes_reciprocity(las_df)
 
-    summary_stats(las_df_, columns)
+
+
+
+
+
 
 
 def stats_visualization_circular(las_path, columns):
@@ -123,36 +95,14 @@ def stats_visualization_circular(las_path, columns):
     #    print(data_rad)
     #    pycircular_test(data)
 
-    # circular_histo(las_df)
-    # circular_boxplot_new(las_df)
+    circular_histo(las_df)
+    circular_boxplot_new(las_df)
     circular_summary_stats(las_df_, columns)
 
 
-def las2df(las, columns):
-    las_df = pd.DataFrame()
-    for col in columns:
-        las_df[col] = las[col]
-    las_df['classification'] = np.where(las.classification == 0, 'inliers', 'outliers')
-
-    return las_df
-
-
-def pc_splitbynoise2(las_df):
-    # split las to clean and noise
-    clean_df = las_df[las_df['classification'] == 0].drop(columns='classification')
-    noise_df = las_df[las_df['classification'] == 1].drop(columns='classification')
-
-    return clean_df, noise_df
-
-
-def pc_splitbynoise(las_df):
-    # split las to clean and noise
-    clean_df = las_df[las_df['classification'] != 7].drop(columns='classification')
-    noise_df = las_df[las_df['classification'] == 7].drop(columns='classification')
-
-    return clean_df, noise_df
-
-
+"""
+Visualisation
+"""
 def histogram_visu_new(df):
     sns.set_theme()
     
@@ -187,49 +137,6 @@ def circular_histo(df):
         #ax.set_ylim(rmax, 0.0)
 
 
-def pairplot_visu(df):
-    sns.set_theme(style="ticks")
-
-    sns.pairplot(df, hue="classification", kind='kde', stat='density')
-
-
-def histogram_visu(clean_df, noise_df, columns, knn):
-    # Determine subplot layout
-    n_cols = 3
-    n_rows = int(np.ceil(len(columns) / n_cols))
-
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5*n_rows))
-
-    while len(columns) != 0:
-        for i in range(0,n_rows):
-            for j in range(0,n_cols):
-                col = columns[0]
-                # perform Kolgormov-Smirnoff test
-                stat, pval = stats.kstest(clean_df[col], noise_df[col], N=len(noise_df))
-
-                # Plot the data
-                sns.histplot(data=clean_df, x=col, stat='density', common_norm=False, kde=True, element="step", color='blue', alpha=0.5, label='inliers', ax=axes[i,j])
-                sns.histplot(data=noise_df, x=col, stat='density', common_norm=False, kde=True, element="step", color='orange', alpha=0.5, label='outliers', ax=axes[i,j])
-                
-                # Print statistical test results
-                axes[i,j].set_title(f'{col} (p-value: {pval:.4f}, T: {stat:.4f})')
-                if pval < 0.05:
-                    axes[i,j].set_xlabel('Statistically different')
-                else:
-                    axes[i,j].set_xlabel('Statistically not different')
-                axes[i,j].legend()
-
-                columns.pop(0)
-
-    # Hide any unused subplots
-    for i in range(noise_df.shape[1], n_rows*n_cols):
-        fig.delaxes(axes[i])
-
-    fig.suptitle('Scanning geometry features'.format(knn), fontsize = 24)
-    #plt.tight_layout()
-    plt.show()
-
-
 def boxplot_visu_new(df):
 
     g = sns.FacetGrid(df, palette= {'inliers': 'blue', 'outliers': 'orange'}, col='variable', sharey=False, sharex=False, height=6)
@@ -252,61 +159,77 @@ def circular_boxplot_new(df):
         ax.set_theta_direction(-1)
         ax.set_rorigin(-rmax*0.3)
 
-def boxplot_test():
-    # Generate some sample data
-    np.random.seed(42)
-    data = np.random.randn(100, 4)
 
-    # Create a pandas DataFrame for easy handling of the data
-    df = pd.DataFrame(data, columns=['A', 'B', 'C', 'D'])
+def attributes_reciprocity(df):
+    sns.set_theme()
+    #g = sns.FacetGrid(df, col='variable', sharey=False, sharex=False, height=6)
+    #g.map_dataframe(sns.jointplot, x='max_reciprocity', y='value', kind='reg', )
+    
+    g = sns.lmplot(data=df, x="max_reciprocity", y="value", col="variable", height=6, sharey=False, line_kws={'color': 'k'}, scatter_kws={'alpha':0.05, 'color': 'm'})
+    g.axes[0,0].set(yscale="log")
 
-    # Convert Cartesian coordinates to polar coordinates
-    theta = np.linspace(0, 2*np.pi, 100, endpoint=False)
+def outlier_per_interval(df):
+    sns.set_theme()
+    g = sns.relplot(data=df, x='bin', y='outlier_probability', col='variable', kind="line", facet_kws=dict(sharex=False))
 
-    # Create a polar plot
-    fig, ax = plt.subplots(subplot_kw=dict(polar=True))
 
-    print(df.values.T)
-    print(theta)
 
-    # Plot boxplots in polar projection
-    bp = ax.boxplot(df.values.T, positions=theta, widths=0.2, patch_artist=True)
+"""
+Utils
+"""
 
-    # Customize the boxplot colors if needed
-    colors = ['lightblue', 'lightgreen', 'lightcoral', 'lightyellow']
-    for patch, color in zip(bp['boxes'], colors):
-        patch.set_facecolor(color)
+def df2op(df, columns_to_group):
+    result_df = pd.DataFrame(columns=["variable", "bin", "outlier_probability"])
 
-    # Add labels
-    ax.set_xticks(theta)
-    ax.set_xticklabels(df.columns)
+    for col in columns_to_group:
+        variable = df[col]
+        if col == 'scan_distance':
+            edges = range(0, int(variable.max())+100, 100)
+        else:
+            edges = range(0, int(variable.max())+10, 10)
 
-    # Display the plot
-    plt.show()
+        # Create bins for the current column
+        df[f"{col}_bin"] = pd.cut(variable, bins=edges, include_lowest=True)
+        #print(df)
 
-def boxplot_visu(clean_df, noise_df, knn):
-    columns = clean_df.columns
-    noise_df['Group'] = 'outliers'
-    clean_df['Group'] = 'inliers'
-    combined_df = pd.concat([clean_df, noise_df], ignore_index=True)
-    # print(combined_df)
-    # melted_df = pd.melt(combined_df, var_name='Attribute', value_name='Value', ignore_index=True)
-    # print(melted_df)
+        # Calculate the middle value of each bin
+        probabilities = df.groupby([f"{col}_bin", "classification"]).size().unstack(fill_value=0)
+        
+        bin = np.array([x.mid for x in probabilities.index.categories])
+        print(bin)
+        outlier_probability = probabilities["outliers"] / (probabilities["outliers"] + probabilities["inliers"])
+        for b, o in zip(bin, outlier_probability):
+            result_df.loc[len(result_df)] = {'variable': col, 'bin': b, 'outlier_probability': o}
+        df.drop(columns=f"{col}_bin")
+    return result_df
 
-    n_cols = 3
-    n_rows = int(np.ceil(len(columns) / n_cols))
 
-    fig, axs = plt.subplots(n_rows, n_cols, figsize=(15,5*n_rows))
-    axs = axs.flatten()
+def las2df(las, columns):
+    las_df = pd.DataFrame()
+    for col in columns:
+        las_df[col] = las[col]
+    las_df['classification'] = np.where(las.classification == 0, 'inliers', 'outliers')
 
-    for i, attribute in enumerate(columns):
-        sns.boxplot(data=combined_df, y='Group', x=attribute, ax=axs[i])
-        # sns.boxplot(data=noise_df, y='Group', x=attribute, ax=axs[i], color='red')
-        axs[i].set_title(attribute)
+    return las_df
 
-    fig.suptitle('Scanning geometry features'.format(knn), fontsize = 24)
-    #plt.tight_layout()
-    plt.show()
+
+def pc_splitbynoise2(las_df):
+    # split las to clean and noise
+    clean_df = las_df[las_df['classification'] == 0].drop(columns='classification')
+    noise_df = las_df[las_df['classification'] == 1].drop(columns='classification')
+
+    return clean_df, noise_df
+
+
+def pc_splitbynoise(las_df):
+    # split las to clean and noise
+    clean_df = las_df[las_df['classification'] != 7].drop(columns='classification')
+    noise_df = las_df[las_df['classification'] == 7].drop(columns='classification')
+
+    return clean_df, noise_df
+
+
+
 
 
 def summary_stats(las_df, attributes):
@@ -349,9 +272,6 @@ def circular_summary_stats(las_df, attributes):
     stats_merge = pd.concat([stats_in, stats_out], axis=1, keys=idx).swaplevel(axis=1)[attributes]
     print(stats_merge)
 
-
-
-
 def add_circ_stats(data, stats_table):
     for col in data.columns:
         data_rad = np.deg2rad(data[col])
@@ -372,6 +292,154 @@ def add_stats(data, stats_table):
     # stats_t['mode'] = data.apply(stats.mode()).mode[0]
     #stats_table = stats_T.transpose()
     return stats_table
+
+
+"""
+Garbage
+"""
+
+def stats_visualization(las_path, columns, knn):
+    las = pylas.read(las_path)
+    print(list(las.point_format.dimension_names))
+
+    las.classification = las.outliers
+
+    las_df = las2df(las, columns)
+
+
+    clean_df, noise_df = pc_splitbynoise2(las_df)
+
+
+    histogram_visu(clean_df, noise_df, columns, knn)
+
+    boxplot_visu(clean_df, noise_df, knn)
+
+def boxplot_test():
+    # Generate some sample data
+    np.random.seed(42)
+    data = np.random.randn(100, 4)
+
+    # Create a pandas DataFrame for easy handling of the data
+    df = pd.DataFrame(data, columns=['A', 'B', 'C', 'D'])
+
+    # Convert Cartesian coordinates to polar coordinates
+    theta = np.linspace(0, 2*np.pi, 100, endpoint=False)
+
+    # Create a polar plot
+    fig, ax = plt.subplots(subplot_kw=dict(polar=True))
+
+    print(df.values.T)
+    print(theta)
+
+    # Plot boxplots in polar projection
+    bp = ax.boxplot(df.values.T, positions=theta, widths=0.2, patch_artist=True)
+
+    # Customize the boxplot colors if needed
+    colors = ['lightblue', 'lightgreen', 'lightcoral', 'lightyellow']
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+
+    # Add labels
+    ax.set_xticks(theta)
+    ax.set_xticklabels(df.columns)
+
+    # Display the plot
+    plt.show()
+
+def pairplot_visu(df):
+    sns.set_theme(style="ticks")
+
+    sns.pairplot(df, hue="classification", kind='kde', stat='density')
+
+def boxplot_visu(clean_df, noise_df, knn):
+    columns = clean_df.columns
+    noise_df['Group'] = 'outliers'
+    clean_df['Group'] = 'inliers'
+    combined_df = pd.concat([clean_df, noise_df], ignore_index=True)
+    # print(combined_df)
+    # melted_df = pd.melt(combined_df, var_name='Attribute', value_name='Value', ignore_index=True)
+    # print(melted_df)
+
+    n_cols = 3
+    n_rows = int(np.ceil(len(columns) / n_cols))
+
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(15,5*n_rows))
+    axs = axs.flatten()
+
+    for i, attribute in enumerate(columns):
+        sns.boxplot(data=combined_df, y='Group', x=attribute, ax=axs[i])
+        # sns.boxplot(data=noise_df, y='Group', x=attribute, ax=axs[i], color='red')
+        axs[i].set_title(attribute)
+
+    fig.suptitle('Scanning geometry features'.format(knn), fontsize = 24)
+    #plt.tight_layout()
+    plt.show()
+
+def histogram_visu(clean_df, noise_df, columns, knn):
+    # Determine subplot layout
+    n_cols = 3
+    n_rows = int(np.ceil(len(columns) / n_cols))
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5*n_rows))
+
+    while len(columns) != 0:
+        for i in range(0,n_rows):
+            for j in range(0,n_cols):
+                col = columns[0]
+                # perform Kolgormov-Smirnoff test
+                stat, pval = stats.kstest(clean_df[col], noise_df[col], N=len(noise_df))
+
+                # Plot the data
+                sns.histplot(data=clean_df, x=col, stat='density', common_norm=False, kde=True, element="step", color='blue', alpha=0.5, label='inliers', ax=axes[i,j])
+                sns.histplot(data=noise_df, x=col, stat='density', common_norm=False, kde=True, element="step", color='orange', alpha=0.5, label='outliers', ax=axes[i,j])
+                
+                # Print statistical test results
+                axes[i,j].set_title(f'{col} (p-value: {pval:.4f}, T: {stat:.4f})')
+                if pval < 0.05:
+                    axes[i,j].set_xlabel('Statistically different')
+                else:
+                    axes[i,j].set_xlabel('Statistically not different')
+                axes[i,j].legend()
+
+                columns.pop(0)
+
+    # Hide any unused subplots
+    for i in range(noise_df.shape[1], n_rows*n_cols):
+        fig.delaxes(axes[i])
+
+    fig.suptitle('Scanning geometry features'.format(knn), fontsize = 24)
+    #plt.tight_layout()
+    plt.show()
+
+
+def pycircular_test(las_df):
+    c21 = Circular(data=las_df, unit='degree')
+
+    fig, ax = plt.subplot_mosaic(mosaic="ab", figsize=(12, 6), per_subplot_kw={'b': {'projection': 'polar'}})
+
+    ax['a'].scatter(np.arange(len(las_df)), las_df, s=10, color='black')
+    ax['a'].set_xlabel('Observation number')
+    ax['a'].set_ylabel('Wind direction (in radians')
+
+    c21.plot(
+        ax=ax['b'],
+        plot_rose=False,
+        plot_density=False,
+        plot_mean=False,
+        plot_median=False,
+        r_max_scatter=1,
+        marker_color='black'
+    )
+
+    from matplotlib import ticker
+
+    position_major = np.arange(0, 2 * np.pi, 2 * np.pi / 4)
+    labels = ['N', 'E', 'S', 'W']
+    ax['b'].xaxis.set_major_locator(ticker.FixedLocator(position_major))
+    ax['b'].xaxis.set_major_formatter(ticker.FixedFormatter(labels))
+
+
+
 
 if __name__ == '__main__':
     main()
